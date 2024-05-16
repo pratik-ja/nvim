@@ -157,15 +157,38 @@ vim.opt.scrolloff = 10
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
 
+-- Title
+vim.opt.title = true
+vim.opt.titlestring = vim.fn.fnamemodify(vim.fn.getcwd(), ':t') .. ' - nvim'
+
 -- Set highlight on search, but clear on pressing <Esc> in normal mode
 vim.opt.hlsearch = true
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
+
+-- <jj> to escape from insert, command, terminal mode to normal mode
+vim.keymap.set('i', 'jj', '<Esc>')
+vim.keymap.set('c', 'jj', '<Esc>')
+vim.keymap.set('t', 'jj', '<Esc>')
+
+-- Switch between two buffers alternatively
+vim.keymap.set('n', 'Tab', '<C-^>')
 
 -- Diagnostic keymaps
 vim.keymap.set('n', '[d', vim.diagnostic.goto_prev, { desc = 'Go to previous [D]iagnostic message' })
 vim.keymap.set('n', ']d', vim.diagnostic.goto_next, { desc = 'Go to next [D]iagnostic message' })
 vim.keymap.set('n', '<leader>e', vim.diagnostic.open_float, { desc = 'Show diagnostic [E]rror messages' })
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
+
+-- Open terminal in horizontal split
+vim.keymap.set('n', '<leader>T', ':split | terminal<cr>12<C-w>_i')
+
+-- Bring cursor to center of screen up and down
+vim.keymap.set('n', '<C-d>', '<C-d>zz')
+vim.keymap.set('n', '<C-u>', '<C-u>zz')
+
+-- Bring search result to center of screen
+vim.keymap.set('n', 'n', 'nzz')
+vim.keymap.set('n', 'N', 'Nzz')
 
 -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
 -- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which
@@ -185,10 +208,14 @@ vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' }
 --  Use CTRL+<hjkl> to switch between windows
 --
 --  See `:help wincmd` for a list of all window commands
-vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left window' })
-vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
-vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
-vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
+vim.keymap.set('n', '<leader>h', '<C-w><C-h>', { desc = 'Move focus to the left window' })
+vim.keymap.set('n', '<leader>l', '<C-w><C-l>', { desc = 'Move focus to the right window' })
+vim.keymap.set('n', '<leader>j', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
+vim.keymap.set('n', '<leader>k', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
+
+-- Split window horizontal and vertical
+vim.keymap.set('n', '<leader>d', ':vsplit<cr>', { desc = 'Split vertically' })
+vim.keymap.set('n', '<leader>D', ':split<cr>', { desc = 'Split horizontally' })
 
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
@@ -245,19 +272,70 @@ require('lazy').setup({
   --    require('gitsigns').setup({ ... })
   --
   -- See `:help gitsigns` to understand what the configuration keys do
-  { -- Adds git related signs to the gutter, as well as utilities for managing changes
-    'lewis6991/gitsigns.nvim',
-    opts = {
-      signs = {
-        add = { text = '+' },
-        change = { text = '~' },
-        delete = { text = '_' },
-        topdelete = { text = '‾' },
-        changedelete = { text = '~' },
-      },
-    },
-  },
+  {
+    'lewis6991/gitsigns.nvim', -- Status line
+    config = function()
+      require('gitsigns').setup {
+        on_attach = function(bufnr)
+          local gs = package.loaded.gitsigns
 
+          local function map(mode, l, r, opts)
+            opts = opts or {}
+            opts.buffer = bufnr
+            vim.keymap.set(mode, l, r, opts)
+          end
+
+          -- Navigation
+          map('n', '<leader>gj', function()
+            if vim.wo.diff then
+              return '<leader>gj'
+            end
+            vim.schedule(function()
+              gs.next_hunk()
+            end)
+            return '<Ignore>'
+          end, { expr = true })
+
+          map('n', '<leader>gk', function()
+            if vim.wo.diff then
+              return '<leader>gk'
+            end
+            vim.schedule(function()
+              gs.prev_hunk()
+            end)
+            return '<Ignore>'
+          end, { expr = true })
+
+          -- Actions
+          map('n', '<leader>gah', gs.stage_hunk)
+          map('n', '<leader>grh', gs.reset_hunk)
+          map('v', '<leader>gah', function()
+            gs.stage_hunk { vim.fn.line '.', vim.fn.line 'v' }
+          end)
+          map('v', '<leader>grh', function()
+            gs.reset_hunk { vim.fn.line '.', vim.fn.line 'v' }
+          end)
+          map('n', '<leader>guh', gs.undo_stage_hunk)
+          map('n', '<leader>gdh', gs.preview_hunk)
+          map('n', '<leader>ga.', gs.stage_buffer)
+          map('n', '<leader>gu.', gs.reset_buffer_index)
+          map('n', '<leader>gr.', gs.reset_buffer)
+          -- map("n", "<leader>gbl", function()
+          -- 	gs.blame_line({ full = true })
+          -- end)
+          map('n', '<leader>gbl', gs.toggle_current_line_blame)
+          map('n', '<leader>gd.', gs.diffthis)
+          map('n', '<leader>gdD', function()
+            gs.diffthis '~'
+          end)
+          map('n', '<leader>gtd', gs.toggle_deleted)
+
+          -- Text object
+          map({ 'o', 'x' }, 'ih', ':<C-U>Gitsigns select_hunk<CR>')
+        end,
+      }
+    end,
+  },
   -- NOTE: Plugins can also be configured to run Lua code when they are loaded.
   --
   -- This is often very useful to both group configuration, as well as handle
@@ -359,6 +437,29 @@ require('lazy').setup({
         --   },
         -- },
         -- pickers = {}
+        defaults = {
+          layout_strategy = 'vertical',
+          prompt_prefix = '🔭 ',
+          selection_caret = '➜ ',
+          path_display = { 'truncate' },
+          layout_config = {
+            width = 0.8,
+            height = 0.9,
+            preview_cutoff = 0,
+          },
+        },
+
+        pickers = {
+          buffers = {
+            show_all_buffers = true,
+            sort_lastused = true,
+            mappings = {
+              n = {
+                ['d'] = 'delete_buffer',
+              },
+            },
+          },
+        },
         extensions = {
           ['ui-select'] = {
             require('telescope.themes').get_dropdown(),
@@ -374,14 +475,15 @@ require('lazy').setup({
       local builtin = require 'telescope.builtin'
       vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = '[S]earch [H]elp' })
       vim.keymap.set('n', '<leader>sk', builtin.keymaps, { desc = '[S]earch [K]eymaps' })
-      vim.keymap.set('n', '<leader>sf', builtin.find_files, { desc = '[S]earch [F]iles' })
+      vim.keymap.set('n', '<leader>sp', builtin.find_files, { desc = '[S]earch [F]iles' })
       vim.keymap.set('n', '<leader>ss', builtin.builtin, { desc = '[S]earch [S]elect Telescope' })
+      vim.keymap.set('n', '<leader>sb', builtin.buffers, { desc = '[S]earch [S]elect Telescope' })
       vim.keymap.set('n', '<leader>sw', builtin.grep_string, { desc = '[S]earch current [W]ord' })
-      vim.keymap.set('n', '<leader>sg', builtin.live_grep, { desc = '[S]earch by [G]rep' })
+      vim.keymap.set('n', '<leader>sf', builtin.live_grep, { desc = '[S]earch by [G]rep' })
       vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
       vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
       vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
-      vim.keymap.set('n', '<leader><leader>', builtin.buffers, { desc = '[ ] Find existing buffers' })
+      vim.keymap.set('n', '<leader>gs', builtin.git_status, { desc = '[G]it [S]tatus' })
 
       -- Slightly advanced example of overriding default behavior and theme
       vim.keymap.set('n', '<leader>/', function()
@@ -478,14 +580,14 @@ require('lazy').setup({
           --  Useful when your language has ways of declaring types without an actual implementation.
           map('gI', require('telescope.builtin').lsp_implementations, '[G]oto [I]mplementation')
 
-          -- Jump to the type of the word under your cursor.
-          --  Useful when you're not sure what type a variable is and you want to see
-          --  the definition of its *type*, not where it was *defined*.
-          map('<leader>D', require('telescope.builtin').lsp_type_definitions, 'Type [D]efinition')
-
-          -- Fuzzy find all the symbols in your current document.
-          --  Symbols are things like variables, functions, types, etc.
-          map('<leader>ds', require('telescope.builtin').lsp_document_symbols, '[D]ocument [S]ymbols')
+          -- -- Jump to the type of the word under your cursor.
+          -- --  Useful when you're not sure what type a variable is and you want to see
+          -- --  the definition of its *type*, not where it was *defined*.
+          -- map('<leader>D', require('telescope.builtin').lsp_type_definitions, 'Type [D]efinition')
+          --
+          -- -- Fuzzy find all the symbols in your current document.
+          -- --  Symbols are things like variables, functions, types, etc.
+          -- map('<leader>ds', require('telescope.builtin').lsp_document_symbols, '[D]ocument [S]ymbols')
 
           -- Fuzzy find all the symbols in your current workspace.
           --  Similar to document symbols, except searches over your entire project.
@@ -624,7 +726,57 @@ require('lazy').setup({
       }
     end,
   },
-
+  {
+    'folke/noice.nvim',
+    event = 'VeryLazy',
+    opts = {
+      -- add any options here
+    },
+    dependencies = {
+      -- if you lazy-load any plugin below, make sure to add proper `module="..."` entries
+      'MunifTanjim/nui.nvim',
+      -- OPTIONAL:
+      --   `nvim-notify` is only needed, if you want to use the notification view.
+      --   If not available, we use `mini` as the fallback
+      'rcarriga/nvim-notify',
+    },
+    config = function()
+      require('noice').setup {
+        lsp = {
+          -- override markdown rendering so that **cmp** and other plugins use **Treesitter**
+          override = {
+            ['vim.lsp.util.convert_input_to_markdown_lines'] = true,
+            ['vim.lsp.util.stylize_markdown'] = true,
+            ['cmp.entry.get_documentation'] = true, -- requires hrsh7th/nvim-cmp
+          },
+        },
+        -- you can enable a preset for easier configuration
+        presets = {
+          bottom_search = false, -- use a classic bottom cmdline for search
+          command_palette = true, -- position the cmdline and popupmenu together
+          long_message_to_split = true, -- long messages will be sent to a split
+          inc_rename = true, -- enables an input dialog for inc-rename.nvim
+          lsp_doc_border = true, -- add a border to hover docs and signature help
+        },
+        cmdline = { format = { search_up = { icon = '🔍' }, search_down = { icon = '🔍' } } },
+        messages = { view_search = false },
+      }
+      require('notify').setup {}
+    end,
+  },
+  {
+    'tmillr/sos.nvim', -- Comment code
+    config = function()
+      require('sos').setup {
+        enabled = true,
+        -- timeout = 20000,
+        autowrite = true,
+        save_on_cmd = 'some',
+        save_on_bufleave = true,
+        save_on_focuslost = true,
+      }
+    end,
+  },
   { -- Autoformat
     'stevearc/conform.nvim',
     lazy = false,
@@ -652,6 +804,18 @@ require('lazy').setup({
       end,
       formatters_by_ft = {
         lua = { 'stylua' },
+        ruby = { 'rubocop' },
+        javascript = { 'prettierd', 'eslint_d' },
+        typescript = { 'prettierd', 'eslint_d' },
+        javascriptreact = { 'prettierd', 'eslint_d' },
+        typescriptreact = { 'prettierd', 'eslint_d' },
+        json = { 'fixjson' },
+        xml = { 'xmlformat' },
+        cpp = { 'clang_format' },
+        swift = { 'swift_format' },
+        html = { 'prettierd', 'eslint_d' },
+        python = { 'black' },
+        sql = { 'sql-formatter' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
         --
@@ -770,6 +934,22 @@ require('lazy').setup({
           { name = 'path' },
         },
       }
+    end,
+  },
+
+  {
+    'nvim-tree/nvim-tree.lua',
+    config = function()
+      -- disable netrw at the very start of your init.lua
+      vim.g.loaded_netrw = 1
+      vim.g.loaded_netrwPlugin = 1
+
+      -- optionally enable 24-bit colour
+      vim.opt.termguicolors = true
+      vim.api.nvim_set_keymap('n', '<leader>bb', ':NvimTreeToggle<CR>', { noremap = true, silent = true })
+      vim.api.nvim_set_keymap('n', '<leader>rf', ':NvimTreeFindFile<CR>', { noremap = true, silent = true })
+
+      require('nvim-tree').setup()
     end,
   },
 
