@@ -171,7 +171,7 @@ vim.keymap.set('c', 'jj', '<Esc>')
 vim.keymap.set('t', 'jj', '<Esc>')
 
 -- Switch between two buffers alternatively
-vim.keymap.set('n', 'Tab', '<C-^>')
+vim.keymap.set('n', '<Tab>', '<C-^>')
 
 -- Diagnostic keymaps
 vim.keymap.set('n', '[d', vim.diagnostic.goto_prev, { desc = 'Go to previous [D]iagnostic message' })
