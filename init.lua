@@ -211,6 +211,10 @@ vim.keymap.set('n', '<leader>k', '<C-w><C-k>', { desc = 'Move focus to the upper
 vim.keymap.set('n', '<leader>d', ':vsplit<cr>', { desc = 'Split vertically' })
 vim.keymap.set('n', '<leader>D', ':split<cr>', { desc = 'Split horizontally' })
 
+function EscapeText()
+  return vim.fn.escape(vim.fn.getreg '"', '\\/"\'')
+end
+vim.keymap.set('v', '<leader>fr', 'y:%s/\\V<C-r>=v:lua.EscapeText()<cr>//gc<left><left><left>', { noremap = true }) -- Find & Replace ANYTHING
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
 
