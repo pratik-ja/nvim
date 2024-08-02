@@ -15,7 +15,7 @@ return {
       -- Lua
       'lua_ls',
       -- Ruby
-      'solargraph',
+      -- 'solargraph',
       -- JS
       'tsserver',
     }
